@@ -1,0 +1,31 @@
+package com.throne.ui
+
+import android.app.Application
+import io.nekohasekai.libbox.Libbox
+import io.nekohasekai.libbox.SetupOptions
+import java.io.File
+
+class ThroneApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        initLibbox()
+    }
+
+    private fun initLibbox() {
+        try {
+            val baseDir = File(filesDir, "libbox").apply { mkdirs() }
+            val workDir = File(filesDir, "work").apply { mkdirs() }
+            val tmpDir = File(cacheDir, "tmp").apply { mkdirs() }
+
+            val options = SetupOptions().apply {
+                basePath = baseDir.absolutePath
+                workingPath = workDir.absolutePath
+                tempPath = tmpDir.absolutePath
+                fixAndroidStack = true
+            }
+            Libbox.setup(options)
+            Libbox.setMemoryLimit(true)
+        } catch (_: Throwable) {
+        }
+    }
+}
