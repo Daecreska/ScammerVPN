@@ -1,1 +1,81 @@
+name: Build ThroneUI APK
 
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK & Build Tools
+        run: |
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;28.0.13004108"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.0.13004108" >> $GITHUB_ENV
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-singbox-v1.12.4-${{ hashFiles('.github/workflows/build.yml') }}
+
+      - name: Clone sing-box v1.12.4 & Build libbox.aar
+        run: |
+          git clone --depth 1 --branch v1.12.4 https://github.com/SagerNet/sing-box.git /tmp/sing-box
+          go install github.com/sagernet/gomobile/cmd/gomobile@v0.1.12
+          go install github.com/sagernet/gomobile/cmd/gobind@v0.1.12
+          export PATH="$JAVA_HOME/bin:$(go env GOPATH)/bin:$PATH"
+          gomobile init
+          mkdir -p "${{ github.workspace }}/ThroneUI-Android/app/libs"
+          cd /tmp/sing-box
+          TAGS="with_gvisor,with_quic,with_wireguard,with_utls,with_clash_api,badlinkname,tfogo_checklinkname0"
+          LDFLAGS="-X github.com/sagernet/sing-box/constant.Version=1.12.4 -X runtime.godebugDefault=multipathtcp=0,tlssha1=1 -checklinkname=0 -s -w -buildid= -extldflags=-Wl,-z,max-page-size=16384"
+          gomobile bind -v \
+            -o "${{ github.workspace }}/ThroneUI-Android/app/libs/libbox.aar" \
+            -target android/arm64,android/arm \
+            -androidapi 26 \
+            -javapkg=io.nekohasekai \
+            -libname=box \
+            -trimpath \
+            -buildvcs=false \
+            -ldflags "$LDFLAGS" \
+            -tags "$TAGS" \
+            ./experimental/libbox
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Build Release APK
+        working-directory: ThroneUI-Android
+        run: gradle assembleRelease --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ThroneUI-Android-APK
+          path: ThroneUI-Android/app/build/outputs/apk/release/app-release.apk
