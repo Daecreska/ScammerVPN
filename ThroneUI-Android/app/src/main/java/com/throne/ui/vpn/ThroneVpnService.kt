@@ -295,7 +295,6 @@ class ThroneVpnService : VpnService() {
             override fun disconnected(message: String?) {}
             override fun clearLogs() {}
             override fun writeLogs(messageList: StringIterator?) {}
-            override fun openURL(url: String?) {}
             override fun writeGroups(message: OutboundGroupIterator?) {}
             override fun initializeClashMode(modeList: StringIterator?, currentMode: String?) {}
             override fun updateClashMode(newMode: String?) {}
