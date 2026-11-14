@@ -5,6 +5,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -82,3 +85,15 @@ jobs:
         with:
           name: ThroneUI-Android-APK
           path: ThroneUI-Android/app/build/outputs/apk/release/app-release.apk
+
+      - name: Publish to GitHub Releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v1.0.${{ github.run_number }}"
+          cp ThroneUI-Android/app/build/outputs/apk/release/app-release.apk ThroneUI.apk
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" ThroneUI.apk --clobber
+          else
+            gh release create "$TAG" ThroneUI.apk --target "${{ github.sha }}" --title "ThroneUI $TAG" --notes "ThroneUI Android APK"
+          fi
